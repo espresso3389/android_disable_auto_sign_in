@@ -1,50 +1,18 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:android_disable_auto_sign_in/android_disable_auto_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_auth_ui/flutter_auth_ui.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  Firebase.initializeApp();
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
-
-  @override
-  void initState() {
-    super.initState();
-    initPlatformState();
-  }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformState() async {
-    String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    // We also handle the message potentially returning null.
-    try {
-      platformVersion =
-          await AndroidDisableAutoSignIn.platformVersion ?? 'Unknown platform version';
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {
-      _platformVersion = platformVersion;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +22,41 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: Column(
+            children: [
+              ElevatedButton(
+                child: const Text("start ui"),
+                onPressed: () async {
+                  final providers = [
+                    AuthUiProvider.apple,
+                    AuthUiProvider.google,
+                    AuthUiProvider.microsoft,
+                  ];
+
+                  final result = await FlutterAuthUi.startUi(
+                    items: providers,
+                    tosAndPrivacyPolicy: TosAndPrivacyPolicy(
+                      tosUrl: "https://www.google.com",
+                      privacyPolicyUrl: "https://www.google.com",
+                    ),
+                  );
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user?.email != null) {
+                    print('email: ${user!.email}');
+                    print('verified: ${user.emailVerified}');
+                    print('token: ${await user.getIdToken()}');
+                    print(
+                        'providers: ${user.providerData.fold<String>('', (v, ui) => v == '' ? ui.providerId : v + ',' + ui.providerId)}');
+                    //await user.delete();
+                  } else {
+                    print('Auth UI failure.');
+                  }
+                  await FirebaseAuth.instance.signOut();
+                  await AndroidDisableAutoSignIn.smartLockSignOut();
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
